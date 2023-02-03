@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -Wall
 
-byteflip: byteflip.c
-	$(CC) $(CFLAGS) -o byteflip byteflip.c
+bitflip: bitflip.c
+	$(CC) $(CFLAGS) -o bitflip bitflip.c
 
 clean:
-	rm -f byteflip
+	rm -f bitflip

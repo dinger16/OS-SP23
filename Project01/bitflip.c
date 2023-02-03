@@ -176,7 +176,7 @@ void write_to_file(char* buffer, int length, char* filename) {
     struct stat sb;
     // the file should not exist
     if (stat(filename, &sb) == 0) {
-        fprintf(stderr, "Error: Output file already exist!\n");
+        fprintf(stderr, "Error: %s file already exist!\n", filename);
         exit(1);
     }
 
@@ -237,11 +237,8 @@ int main(int argc, char* argv[]) {
     fprintf(stdout, "Input: %s was %d bytes\n", in_filename, (int) sb.st_size);
     fprintf(stdout, "Output: %s was output successfully\n", out_filename);
 
+    free(out_filename);
+    free(in_filename);
+
     return 0;
 }
-
-
-/*
-CURRENT THINGS TO ADDRESS:
-    - what to do if output file already exists
-*/
