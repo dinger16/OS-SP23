@@ -14,6 +14,12 @@ void check_num_args(int argc) {
     // there should be three arguments: the program name, the filename, and the lookup byte
     if (argc < 2) {
         fprintf(stderr, "Error: Too few inputs!\n");
+        fprintf(stderr, "Potential Arguments:\n");
+        fprintf(stderr, "\t-maxsize XXX: Set the maximum file size to XXX bytes.\n");
+        fprintf(stderr, "\t-o XXX: Set the output file name to XXX.\n");
+        fprintf(stderr, "\t-r: Return ther reverse order of bytes.\n");
+        fprintf(stderr, "\t-bf: Return the bit-flipped order of bytes.\n");
+        fprintf(stderr, "\t-help: Print this help message.\n");
         exit(1);
     }
 }
