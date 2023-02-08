@@ -15,6 +15,11 @@ int max_command_len = 10;
 
 int main(int argc, char* argv[]) {
 
+    if (argc != 1) {
+        fprintf(stderr, "Error: Executable does not take any parameters!\n");
+        exit(1);
+    }
+
     signal(SIGINT, exit_handler);
 
     char input[input_size];
@@ -42,11 +47,11 @@ int main(int argc, char* argv[]) {
     else if (rc == 0) {
         fprintf(stdout, "Executing: %s\n", command[0]);
         execvp(command[0], command);
+        fprintf(stderr, "%s failed to run... Enter a valid command!\n", command[0]);
+        exit(-1);
     }
     else {
-        int wc = wait(NULL);
-        // do something with wc to make sure that child processed returned
-        wc++; // delete this
+        wait(NULL);
         fprintf(stdout, "Execution complete\n");
     }
 
