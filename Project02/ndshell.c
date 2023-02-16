@@ -32,8 +32,7 @@ void createChildProcess(char** command) {
     else if (rc == 0) {
         // fprintf(stdout, "Executing: %s\n", command[0]);
         execvp(command[0], command); // catch execvp because also shoudn't exit
-        printf("Error: %s: command not found. Process %d has been terminated.\n", command[0], getpid());
-        // kill process with getpid and update globals
+        printf("ndshell: %s: command not found. Process %d has been terminated.\n", command[0], getpid());
         exit(1);
     }
     else {
@@ -70,6 +69,8 @@ void removeChildProcess(int cpid) {
         childProcesses[i] = temp_array[i];
     }
     childProcesses[numChildProcesses] = 0;
+
+    numChildProcesses--;
 }
 
 void nd_wait(int pid) {
@@ -82,38 +83,35 @@ void nd_wait(int pid) {
         printf("Process %d exited normally with status %d\n", cpid, WEXITSTATUS(wstatus));
     }
     fflush(stdout);
+
     removeChildProcess(cpid);
-    numChildProcesses--;
 }
 
 void signalCapture(int signum) {
     if (numChildProcesses == 0) {
-        fprintf(stderr, "\nControl-C was pressed... exiting\n");
+            exit(1);
     }
-    else {
-        int cpid = childProcesses[numChildProcesses - 1];
-        printf("\nControl-C was pressed... \n");
-        kill(cpid, SIGKILL);
-        nd_wait(cpid);
-        removeChildProcess(childProcesses[numChildProcesses]);
-        numChildProcesses--;
+    int cpid = childProcesses[numChildProcesses - 1];
+    if (signum == SIGINT) {
+        if (!isChildProccess(getpid())) {
+            nd_wait(cpid);
+        }
     }
 }
 
 int main(int argc, char* argv[]) {
 
     if (argc != 1) {
-        fprintf(stderr, "Error: Executable does not take any parameters!\n");
+        fprintf(stderr, "ndshell: Executable does not take any parameters!\n");
         exit(1);
     }
 
     struct sigaction sigSetValue;
     sigSetValue.sa_handler = signalCapture;
-    // catch control-c and send to signalCapture
     sigaction(SIGINT, &sigSetValue, NULL);
+    sigaction(SIGKILL, &sigSetValue, NULL);
 
     const int ppid = getpid();
-
 
     int flag = 1;
     while (flag && ppid == getpid()) {
@@ -153,7 +151,7 @@ int main(int argc, char* argv[]) {
         else if (strcmp(command[0], "start") == 0) {
             // call fork and exec and keep track of cpid
             if (counter <= 1) {
-                fprintf(stderr, "Error: Invalid start command! Please enter a process to run.\n");
+                fprintf(stderr, "ndshell: Invalid start command! Please enter a process to run.\n");
                 continue;
             }
 
@@ -162,7 +160,7 @@ int main(int argc, char* argv[]) {
         else if (strcmp(command[0], "wait") == 0) {
             // wait for any child process to exit
             if (numChildProcesses == 0) {
-                printf("No children\n");
+                printf("ndshell: There are currently no processes running.\n");
             }
             else {
                 nd_wait(-1);
@@ -173,16 +171,16 @@ int main(int argc, char* argv[]) {
             // get the specified cpid
             // wait for specific cpid
             if (counter <= 1) {
-                fprintf(stderr, "Error: Invalid waitfor command! Invalid pid specified.\n");
+                fprintf(stderr, "ndshell: Invalid waitfor command! Invalid pid specified.\n");
                 continue;
             }
             int cpid = atoi(command[1]);
             
             if (numChildProcesses == 0) {
-                printf("No children\n");
+                printf("ndshell: There are currently no processes running.\n");
             }
             else if (!isChildProccess(cpid)) {
-                fprintf(stderr, "Error: Process %d does not exist!\n", cpid);
+                fprintf(stderr, "ndshell: Process %d does not exist!\n", cpid);
             }
             else {
                 nd_wait(cpid);
@@ -191,7 +189,7 @@ int main(int argc, char* argv[]) {
         else if (strcmp(command[0], "run") == 0) {
             // run start and waitfor for given process
             if (counter <= 1) {
-                fprintf(stderr, "Error: Invalid start command! Please enter a process to run.\n");
+                fprintf(stderr, "ndshell: Invalid start command! Please enter a process to run.\n");
                 continue;
             }
             createChildProcess(executable);
@@ -203,48 +201,81 @@ int main(int argc, char* argv[]) {
             // get the specified cpid
             // kill specific cpid
             if (counter <= 1) {
-                fprintf(stderr, "Error: Invalid kill command! Please enter a process id to kill.\n");
+                fprintf(stderr, "ndshell: Invalid kill command! Please enter a process id to kill.\n");
                 continue;
             }
             int cpid = atoi(command[1]);
             
             if (numChildProcesses == 0) {
-                printf("No children\n");
+                printf("ndshell: There are currently no processes running.\n");
             }
             else if (!isChildProccess(cpid)) {
-                fprintf(stderr, "Error: Process %d does not exist!\n", cpid);
+                fprintf(stderr, "ndshell: Process %d does not exist!\n", cpid);
             }
             else {
                 kill(cpid, SIGKILL);
                 nd_wait(cpid);
-                removeChildProcess(childProcesses[numChildProcesses]);
-                numChildProcesses--;
             }
 
         }
         else if (strcmp(command[0], "quit") == 0) {
             // wait for all child processes
             // exit gracefully
-            int i, cpid;
-            for (i = 0; i <= numChildProcesses; i++)
-            {
-                cpid = childProcesses[i];
-                kill(cpid, SIGKILL);
-                nd_wait(cpid);
+            int copyCPID[numChildProcesses];
+            int copyNUM = numChildProcesses;
+            int i;
+            for (i = 0; i < numChildProcesses; i++) {
+                copyCPID[i] = childProcesses[i];
             }
-            printf("\nAll child processes complete - exiting the shell.\n");
+
+            for (i = 0; i < copyNUM; i++) {
+                kill(copyCPID[i], SIGKILL);
+                nd_wait(copyCPID[i]);
+            }
+
+            printf("\nndshell: All child processes complete - exiting the shell.\n");
             break;
 
         }
         else if (strcmp(command[0], "bound") == 0) {
-            // run with a time limit and if time limit exceeded then kill child process
+            if (counter <= 2) {
+                fprintf(stderr, "ndshell: Invalid bound command! Please enter number of seconds and a command.\n");
+                continue;
+            }
+            // check params
+            int sec = atoi(command[1]);
+            if (sec == 0) {
+                fprintf(stderr, "ndshell: Invalid bound command! Please enter a valid number of seconds for the command to run.\n");
+                continue;
+            }
+            char* bound_executable[maxCommandLen - 2];
+            int i;
+            for (i = 2; i <= counter; i++) {
+                bound_executable[i-2] = command[i];
+            }
+
+            // run and wait for given process
+            createChildProcess(bound_executable);
+            int cpid = runCPID;
+
+            int rc = fork();
+            if (rc < 0) {
+                fprintf(stderr, "Fork Failed\n");
+                exit(1);
+            }
+            else if (rc == 0) {
+                sleep(sec);
+                kill(cpid, SIGKILL);
+            }
+            else {
+                nd_wait(runCPID);
+                wait(NULL); // wait for timer to return
+            }
+
         }
         else {
-            printf("Please enter a valid command!\n");
+            printf("ndshell: Unknown command %s\n", command[0]);
         }
-
-        // clearBuffer(command, counter);
-        // clearBuffer(executable, counter - 1);
 
     }
     return 0;
