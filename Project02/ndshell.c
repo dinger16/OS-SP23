@@ -6,19 +6,13 @@
 #include <sys/types.h>
 #include <signal.h>
 
-#define _XOPEN_SOURCE 600
-
 #define maxChildProcesses 1000
 #define maxInputSize  100
 #define maxCommandLen 10
 
 int numChildProcesses = 0;
+int runCPID = 0;
 int childProcesses[maxChildProcesses];
-
-void signalCapture(int signum) {
-    fprintf(stderr, "\nControl-C was pressed... exiting\n");
-    exit(1);
-}
 
 void clearBuffer(char** buffer, int length) {
     int i;
@@ -38,9 +32,13 @@ void createChildProcess(char** command) {
     else if (rc == 0) {
         // fprintf(stdout, "Executing: %s\n", command[0]);
         execvp(command[0], command); // catch execvp because also shoudn't exit
+        printf("Error: %s: command not found. Process %d has been terminated.\n", command[0], getpid());
+        // kill process with getpid and update globals
+        exit(1);
     }
     else {
         int cpid = rc;
+        runCPID = cpid;
         childProcesses[numChildProcesses] = cpid;
         numChildProcesses++;
         printf("Process %d started\n", cpid);
@@ -74,6 +72,34 @@ void removeChildProcess(int cpid) {
     childProcesses[numChildProcesses] = 0;
 }
 
+void nd_wait(int pid) {
+    int wstatus;
+    int cpid = waitpid(pid, &wstatus, 0);
+    if (WTERMSIG(wstatus)) {
+        printf("Process %d exited abnormally with signal %d\n", cpid, WTERMSIG(wstatus));
+    }
+    else {
+        printf("Process %d exited normally with status %d\n", cpid, WEXITSTATUS(wstatus));
+    }
+    fflush(stdout);
+    removeChildProcess(cpid);
+    numChildProcesses--;
+}
+
+void signalCapture(int signum) {
+    if (numChildProcesses == 0) {
+        fprintf(stderr, "\nControl-C was pressed... exiting\n");
+    }
+    else {
+        int cpid = childProcesses[numChildProcesses - 1];
+        printf("\nControl-C was pressed... \n");
+        kill(cpid, SIGKILL);
+        nd_wait(cpid);
+        removeChildProcess(childProcesses[numChildProcesses]);
+        numChildProcesses--;
+    }
+}
+
 int main(int argc, char* argv[]) {
 
     if (argc != 1) {
@@ -91,8 +117,6 @@ int main(int argc, char* argv[]) {
 
     int flag = 1;
     while (flag && ppid == getpid()) {
-
-        // printf("%d", getpid());
 
         // handling input from user
         char input[maxInputSize];
@@ -123,13 +147,17 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        int wstatus;
         if (strcmp(command[0], "exit") == 0) {
             // kill all child processes
             flag = 0;
         }
         else if (strcmp(command[0], "start") == 0) {
             // call fork and exec and keep track of cpid
+            if (counter <= 1) {
+                fprintf(stderr, "Error: Invalid start command! Please enter a process to run.\n");
+                continue;
+            }
+
             createChildProcess(executable);
         }
         else if (strcmp(command[0], "wait") == 0) {
@@ -138,52 +166,38 @@ int main(int argc, char* argv[]) {
                 printf("No children\n");
             }
             else {
-                int cpid = waitpid(-1, &wstatus, 0);
-                if (wstatus == WIFSIGNALED(wstatus)) {
-                    if (WTERMSIG(wstatus)) {
-                        printf("Process %d exited abnormally with signal %d\n", cpid, WTERMSIG(wstatus));
-                    }
-                    else {
-                        printf("Process %d exited normally with status %d\n", cpid, WEXITSTATUS(wstatus));
-                    }
-                }
-                fflush(stdout);
-                removeChildProcess(cpid);
-                numChildProcesses--;
+                nd_wait(-1);
             }
         }
         else if (strcmp(command[0], "waitfor") == 0) {
             // make sure counter is greater than 1
             // get the specified cpid
             // wait for specific cpid
-            int cpid = atoi(command[1]);
-
-            if (counter <= 1 || cpid == 0) {
+            if (counter <= 1) {
                 fprintf(stderr, "Error: Invalid waitfor command! Invalid pid specified.\n");
+                continue;
             }
-            else if (numChildProcesses == 0) {
+            int cpid = atoi(command[1]);
+            
+            if (numChildProcesses == 0) {
                 printf("No children\n");
             }
             else if (!isChildProccess(cpid)) {
                 fprintf(stderr, "Error: Process %d does not exist!\n", cpid);
             }
             else {
-                waitpid(cpid, &wstatus, 0);
-                if (wstatus == WIFSIGNALED(wstatus)) {
-                    if (WTERMSIG(wstatus)) {
-                        printf("Process %d exited abnormally with signal %d\n", cpid, WTERMSIG(wstatus));
-                    }
-                    else {
-                        printf("Process %d exited normally with status %d\n", cpid, WEXITSTATUS(wstatus));
-                    }
-                }
-                fflush(stdout);
-                removeChildProcess(cpid);
-                numChildProcesses--;
+                nd_wait(cpid);
             }
         }
         else if (strcmp(command[0], "run") == 0) {
             // run start and waitfor for given process
+            if (counter <= 1) {
+                fprintf(stderr, "Error: Invalid start command! Please enter a process to run.\n");
+                continue;
+            }
+            createChildProcess(executable);
+            nd_wait(runCPID);
+
         }
         else if (strcmp(command[0], "kill") == 0) {
             // make sure counter is greater than 1
