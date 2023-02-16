@@ -148,7 +148,6 @@ int main(int argc, char* argv[]) {
         }
 
         if (strcmp(command[0], "exit") == 0) {
-            // kill all child processes
             flag = 0;
         }
         else if (strcmp(command[0], "start") == 0) {
@@ -203,10 +202,39 @@ int main(int argc, char* argv[]) {
             // make sure counter is greater than 1
             // get the specified cpid
             // kill specific cpid
+            if (counter <= 1) {
+                fprintf(stderr, "Error: Invalid kill command! Please enter a process id to kill.\n");
+                continue;
+            }
+            int cpid = atoi(command[1]);
+            
+            if (numChildProcesses == 0) {
+                printf("No children\n");
+            }
+            else if (!isChildProccess(cpid)) {
+                fprintf(stderr, "Error: Process %d does not exist!\n", cpid);
+            }
+            else {
+                kill(cpid, SIGKILL);
+                nd_wait(cpid);
+                removeChildProcess(childProcesses[numChildProcesses]);
+                numChildProcesses--;
+            }
+
         }
         else if (strcmp(command[0], "quit") == 0) {
             // wait for all child processes
             // exit gracefully
+            int i, cpid;
+            for (i = 0; i <= numChildProcesses; i++)
+            {
+                cpid = childProcesses[i];
+                kill(cpid, SIGKILL);
+                nd_wait(cpid);
+            }
+            printf("\nAll child processes complete - exiting the shell.\n");
+            break;
+
         }
         else if (strcmp(command[0], "bound") == 0) {
             // run with a time limit and if time limit exceeded then kill child process
