@@ -114,7 +114,11 @@ int main(int argc, char* argv[]) {
         char input[maxInputSize];
 
         fprintf(stdout, "ndshell>");
-        fgets(input, maxInputSize, stdin);
+        char* fgets_return = fgets(input, maxInputSize, stdin);
+
+        if (fgets_return == NULL) {
+            break;
+        }
 
         input[strlen(input) - 1] = '\0';
         char* split = strtok(input, " ");

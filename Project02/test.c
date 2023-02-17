@@ -1,14 +1,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
-int main(void) {
-    char* args[2];
-    args[0] = "not";
-    args[1] = NULL;
-    // char* ls = "ls";
-    // char** command = {ls};
-    int code = execvp(args[0], args);
-    printf("%d\n", code);
+int main(int argc, char* argv[]) {
+    char* x = argv[1];
 
-    return code;
+    printf("%s\n", x);
+
+    return 0;
 }
