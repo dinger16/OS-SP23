@@ -8,6 +8,7 @@ char g_bKeepLooping = 1;
 #define MAX_THREADS 5
 #define BUFFER_SIZE 1024
 #define maxCommandLen 10
+
 pthread_mutex_t lock;
 
 struct ChimeThreadInfo {
@@ -24,12 +25,12 @@ void * ThreadChime (void * pData) {
 
     pThreadInfo = (struct ChimeThreadInfo *) pData;
     while(g_bKeepLooping) {
-        // lock the mutex for sleep and the print statement
+        // lock the mutex for sleep
         pthread_mutex_lock(&lock);
         sleep(pThreadInfo->fChimeInterval);
-        printf("Ding - Chime %d with an interval of %f s!\n", pThreadInfo->nIndex, pThreadInfo->fChimeInterval);
         // unlock the mutex
         pthread_mutex_unlock(&lock);
+        printf("Ding - Chime %d with an interval of %.2f s!\n", pThreadInfo->nIndex, pThreadInfo->fChimeInterval);
     }
     return NULL;
 }
@@ -92,7 +93,7 @@ int main (int argc, char *argv[]) {
             }
 
             // convert interval to float
-            int seconds = atof(command[2]);
+            float seconds = atof(command[2]);
             // check if interval is valid (atof returns 0 if it can't convert)
             if (seconds == 0 && strcmp(command[2], "0") != 0) {
                 printf("CHIME: chime interval must be a floating point number\n");
@@ -109,11 +110,11 @@ int main (int argc, char *argv[]) {
                 TheThreads[index].fChimeInterval = seconds;
                 TheThreads[index].bIsValid = 1;
                 pthread_create(&TheThreads[index].ThreadID, NULL, ThreadChime, &TheThreads[index]);
-                printf("Starting thread %ld for chime %d, interval of %d s\n", TheThreads[index].ThreadID, index, seconds);
+                printf("Starting thread %ld for chime %d, interval of %.2f s\n", TheThreads[index].ThreadID, index, seconds);
             // if thread is valid then just change the interval
             } else {
                 TheThreads[index].fChimeInterval = seconds;
-                printf("Adjusting chime %d to interval of %d s\n", index, seconds);
+                printf("Adjusting chime %d to interval of %.2f s\n", index, seconds);
             }
 
         } else if (strcmp(command[0], "exit") == 0) {
