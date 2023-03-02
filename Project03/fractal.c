@@ -97,8 +97,8 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 exit(1);
             } else {
                 int new_value = atof(argv[i]);
-                if (new_value <= 0) {
-                   fprintf(stderr, "Error: -xmin requires a positive value\n");
+                if (new_value == 0 && strcmp(argv[i], "0") != 0) {
+                    fprintf(stderr, "Error: -xmin requires a numeric value\n");
                     exit(1);
                 } else {
                     pSettings->fMinX = new_value;
@@ -111,8 +111,8 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 exit(1);
             } else {
                 int new_value = atof(argv[i]);
-                if (new_value <= 0) {
-                    fprintf(stderr, "Error: -xmax requires a positive value\n");
+                if (new_value == 0 && strcmp(argv[i], "0") != 0) {
+                    fprintf(stderr, "Error: -xmax requires a numeric value\n");
                     exit(1);
                 } else {
                     pSettings->fMaxX = new_value;
@@ -125,8 +125,8 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 exit(1);
             } else {
                 int new_value = atof(argv[i]);
-                if (new_value <= 0) {
-                    fprintf(stderr, "Error: -ymin requires a positive value\n");
+                if (new_value == 0 && strcmp(argv[i], "0") != 0) {
+                    fprintf(stderr, "Error: -ymin requires a numeric value\n");
                     exit(1);
                 } else {
                     pSettings->fMinY = new_value;
@@ -139,8 +139,8 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 exit(1);
             } else {
                 int new_value = atof(argv[i]);
-                if (new_value <= 0) {
-                    fprintf(stderr, "Error: -ymax requires a positive value\n");
+                if (new_value == 0 && strcmp(argv[i], "0") != 0) {
+                    fprintf(stderr, "Error: -ymax requires a numeric value\n");
                     exit(1);
                 } else {
                     pSettings->fMaxY = new_value;
@@ -166,7 +166,7 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 fprintf(stderr, "Error: -width requires a value\n");
                 exit(1);
             } else {
-                int new_value = atof(argv[i]);
+                int new_value = atoi(argv[i]);
                 if (new_value <= 0) {
                     fprintf(stderr, "Error: -width requires a positive value\n");
                     exit(1);
@@ -180,7 +180,7 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 fprintf(stderr, "Error: -height requires a value\n");
                 exit(1);
             } else {
-                int new_value = atof(argv[i]);
+                int new_value = atoi(argv[i]);
                 if (new_value <= 0) {
                     fprintf(stderr, "Error: -height requires a positive value\n");
                     exit(1);
@@ -199,10 +199,7 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                     fprintf(stderr, "Error: -output requires a valid file name\n");
                     exit(1);
                 } else {
-                    // copy string of new file into pSettins->szOutfile
-                    // use strtok and stuff
-                    //pSettings->szOutfile = new_value;
-                    continue;
+                    strcpy(pSettings->szOutfile, new_value);
                 }
             }
         } else if (strcmp(argv[i], "-threads") == 0) {
