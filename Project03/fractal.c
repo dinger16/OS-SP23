@@ -28,6 +28,16 @@ numeric type in C, which has the special functions cabs()
 and cpow() to compute the absolute values and powers of
 complex values.
 */
+#define MAX_THREADS 50
+
+struct ThreadInfo {
+    int    nIndex;
+    pthread_t threadId;
+    struct FractalSettings *settings;
+    struct bitmap *map;
+};
+
+struct ThreadInfo TheThreads[MAX_THREADS];
 
 static int compute_point( double x, double y, int max )
 {
@@ -77,6 +87,40 @@ void compute_image_singlethread ( struct FractalSettings * pSettings, struct bit
 			bitmap_set(pBitmap,i,j,gray);
 		}
 	}
+}
+
+void * compute_image_multithread (void * pData)
+{
+    struct ThreadInfo *pThreadInfo;
+
+    pThreadInfo = (struct ThreadInfo *) pData;
+
+    int index = pThreadInfo->nIndex;
+    int numThreads = pThreadInfo->settings->nThreads;
+    int height = pThreadInfo->settings->nPixelHeight;
+
+    int start = index * (height / numThreads);
+    int stop = ((index+1) * (height / numThreads) >= height) ? height : (index+1) * (height / numThreads);
+
+	int i,j;
+	for(j=start; j<stop; j++) {
+		for(i=0; i<pThreadInfo->settings->nPixelWidth; i++) {
+
+			double x = pThreadInfo->settings->fMinX + i*(pThreadInfo->settings->fMaxX - pThreadInfo->settings->fMinX) / pThreadInfo->settings->nPixelWidth;
+			double y = pThreadInfo->settings->fMinY + j*(pThreadInfo->settings->fMaxY - pThreadInfo->settings->fMinY) / pThreadInfo->settings->nPixelHeight;
+			// Compute the iterations at x,y
+			int iter = compute_point(x,y,pThreadInfo->settings->nMaxIter);
+
+			// Convert a iteration number to an RGB color.
+			// (Change this bit to get more interesting colors.)
+			int gray = 255 * iter / pThreadInfo->settings->nMaxIter;
+
+            // Set the particular pixel to the specific value
+			// Set the pixel in the bitmap.
+			bitmap_set(pThreadInfo->map,i,j,gray);
+		}
+	}
+    return NULL;
 }
 
 
@@ -209,8 +253,8 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 exit(1);
             } else {
                 int new_value = atoi(argv[i]);
-                if (new_value <= 0) {
-                    fprintf(stderr, "Error: -threads requires a positive integer value\n");
+                if (new_value <= 0 || new_value > MAX_THREADS) {
+                    fprintf(stderr, "Error: -threads requires a positive integer value that is less than %d\n", MAX_THREADS);
                     exit(1);
                 } else {
                     pSettings->nThreads = new_value;
@@ -307,6 +351,32 @@ int main( int argc, char *argv[] )
 
             /* Could you send an argument and write a different version of compute_image that works off of a
                certain parameter setting for the rows to iterate upon? */
+            
+            /* Create a bitmap of the appropriate size */
+            struct bitmap * pBitmap = bitmap_create(theSettings.nPixelWidth, theSettings.nPixelHeight);
+
+            /* Fill the bitmap with dark blue */
+            bitmap_reset(pBitmap,MAKE_RGBA(0,0,255,0));
+
+            /* Create the threads */
+            int i;
+            for (i = 0; i < theSettings.nThreads; i++) {
+                TheThreads[i].nIndex = i;
+                TheThreads[i].settings = &theSettings;
+                TheThreads[i].map = pBitmap;
+                pthread_create(&TheThreads[i].threadId, NULL, compute_image_multithread, &TheThreads[i]);
+            }
+
+            /* Join the threads */
+            for (i = 0; i < theSettings.nThreads; i++) {
+                pthread_join(TheThreads[i].threadId, NULL);
+            }
+
+            // Save the image in the stated file.
+            if(!bitmap_save(pBitmap,theSettings.szOutfile)) {
+                fprintf(stderr,"fractal: couldn't write to %s: %s\n",theSettings.szOutfile,strerror(errno));
+                return 1;
+            }    
         }
         else if(theSettings.theMode == MODE_THREAD_TASK)
         {
