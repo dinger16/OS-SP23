@@ -47,7 +47,7 @@ struct ThreadInfo {
     int         nIndex;
     pthread_t   threadId;
     int         taskCount;
-    struct      Task **task;
+    struct      Task *task;
     struct      FractalSettings *settings;
     struct      bitmap *map;
 };
@@ -149,16 +149,16 @@ void * compute_image_tasks (void * pData)
 
     int index = 0;
     for (int i = 0; i < pThreadInfo->taskCount; i++) {
-        if (pThreadInfo->task[i]->active == 0) {
+        if (pThreadInfo->task[i].active == 1) {
             index = i;
             break;
         }
     }
 
-    int startX = pThreadInfo->task[index]->startX;
-    int endX = pThreadInfo->task[index]->endX;
-    int startY = pThreadInfo->task[index]->startY;
-    int endY = pThreadInfo->task[index]->endY;
+    int startX = pThreadInfo->task[index].startX;
+    int endX = pThreadInfo->task[index].endX;
+    int startY = pThreadInfo->task[index].startY;
+    int endY = pThreadInfo->task[index].endY;
 
 	int i,j;
 	for(j=startY; j<endY; j++) {
@@ -178,7 +178,7 @@ void * compute_image_tasks (void * pData)
 			bitmap_set(pThreadInfo->map,i,j,gray);
 		}
 	}
-    pThreadInfo->task[index]->active = 0;
+    pThreadInfo->task[index].active = 0;
 
     pthread_mutex_unlock(&lock);
 
@@ -195,7 +195,20 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
     int i = 1;
     while (i < argc) {
         if (strcmp(argv[i], "-help") == 0) {
-            continue;
+            fprintf(stderr, "Flags:\n");
+            fprintf(stderr, "  -help: Print this message\n");
+            fprintf(stderr, "  -width <value>: Set the width of the image in pixels\n");
+            fprintf(stderr, "  -height <value>: Set the height of the image in pixels\n");
+            fprintf(stderr, "  -maxiter <value>: Set the maximum number of iterations\n");
+            fprintf(stderr, "  -xmin <value>: Set the minimum x value\n");
+            fprintf(stderr, "  -xmax <value>: Set the maximum x value\n");
+            fprintf(stderr, "  -ymin <value>: Set the minimum y value\n");
+            fprintf(stderr, "  -ymax <value>: Set the maximum y value\n");
+            fprintf(stderr, "  -threads: Set the number of threads to use\n");
+            fprintf(stderr, "  -row: Set parallelization by row\n");
+            fprintf(stderr, "  -task: Set parallelization by task\n");
+            fprintf(stderr, "  -output <filename>: Set the output file name\n");
+            exit(0);
         } else if (strcmp(argv[i], "-xmin") == 0) {
             i++;
             if (i >= argc) {
@@ -297,7 +310,7 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
         } else if (strcmp(argv[i], "-output") == 0) {
             i++;
             if (i >= argc) {
-                fprintf(stderr, "Error: -height requires a value\n");
+                fprintf(stderr, "Error: -output requires a value\n");
                 exit(1);
             } else {
                 char* new_value = argv[i];
@@ -465,9 +478,9 @@ int main( int argc, char *argv[] )
             struct Task TheTasks[nTasks - 1];
 
             int taskCount = 0;
-            while (curHeight >= 20) {
+            while (curHeight >= TASK_HEIGHT) {
                 curWidth = width;
-                while (curWidth >= 20) {
+                while (curWidth >= TASK_WIDTH) {
                     TheTasks[taskCount].startX = width - curWidth;
                     TheTasks[taskCount].startY = height - curHeight;
                     TheTasks[taskCount].endX = width - curWidth + TASK_WIDTH;
@@ -476,7 +489,7 @@ int main( int argc, char *argv[] )
                     taskCount ++;
                     curWidth -= TASK_WIDTH;
                 }
-                if (curWidth > 0) {
+                if (curWidth > TASK_WIDTH) {
                     TheTasks[taskCount].startX = width - curWidth;
                     TheTasks[taskCount].startY = height - curHeight;
                     TheTasks[taskCount].endX = width;
@@ -488,7 +501,7 @@ int main( int argc, char *argv[] )
             }
             curWidth = width;
             if (curHeight > 0) {
-                while (curWidth >= 20) {
+                while (curWidth >= TASK_WIDTH) {
                     TheTasks[taskCount].startX = width - curWidth;
                     TheTasks[taskCount].startY = height - curHeight;
                     TheTasks[taskCount].endX = width - curWidth + TASK_WIDTH;
@@ -497,7 +510,7 @@ int main( int argc, char *argv[] )
                     taskCount ++;
                     curWidth -= TASK_WIDTH;
                 }
-                if (curWidth > 0) {
+                if (curWidth > TASK_WIDTH) {
                     TheTasks[taskCount].startX = width - curWidth;
                     TheTasks[taskCount].startY = height - curHeight;
                     TheTasks[taskCount].endX = width;
@@ -518,10 +531,11 @@ int main( int argc, char *argv[] )
             for (i = 0; i < theSettings.nThreads; i++) {
                 TheThreads[i].nIndex = i;
                 TheThreads[i].taskCount = taskCount;
-                TheThreads[i].task = (struct Task **) TheTasks;
+                TheThreads[i].task = (struct Task*) TheTasks;
                 TheThreads[i].settings = &theSettings;
                 TheThreads[i].map = pBitmap;
-                pthread_create(&TheThreads[i].threadId, NULL, compute_image_multithread, &TheThreads[i]);
+                //pthread_create(&TheThreads[i].threadId, NULL, compute_image_multithread, &TheThreads[i]);
+                pthread_create(&TheThreads[i].threadId, NULL, compute_image_tasks, &TheThreads[i]);
             }
 
             /* Join the threads */
