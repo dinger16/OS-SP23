@@ -30,9 +30,24 @@ complex values.
 */
 #define MAX_THREADS 40
 
+#define TASK_HEIGHT 20
+#define TASK_WIDTH 20
+
+pthread_mutex_t lock;
+
+struct Task {
+    int startX;
+    int endX;
+    int startY;
+    int endY;
+    int active;
+};
+
 struct ThreadInfo {
     int         nIndex;
     pthread_t   threadId;
+    int         taskCount;
+    struct      Task **task;
     struct      FractalSettings *settings;
     struct      bitmap *map;
 };
@@ -120,6 +135,53 @@ void * compute_image_multithread (void * pData)
 			bitmap_set(pThreadInfo->map,i,j,gray);
 		}
 	}
+    return NULL;
+}
+
+
+void * compute_image_tasks (void * pData)
+{
+    pthread_mutex_lock(&lock);
+
+    struct ThreadInfo *pThreadInfo;
+
+    pThreadInfo = (struct ThreadInfo *) pData;
+
+    int index = 0;
+    for (int i = 0; i < pThreadInfo->taskCount; i++) {
+        if (pThreadInfo->task[i]->active == 0) {
+            index = i;
+            break;
+        }
+    }
+
+    int startX = pThreadInfo->task[index]->startX;
+    int endX = pThreadInfo->task[index]->endX;
+    int startY = pThreadInfo->task[index]->startY;
+    int endY = pThreadInfo->task[index]->endY;
+
+	int i,j;
+	for(j=startY; j<endY; j++) {
+		for(i=startX; i<endX; i++) {
+
+			double x = pThreadInfo->settings->fMinX + i*(pThreadInfo->settings->fMaxX - pThreadInfo->settings->fMinX) / pThreadInfo->settings->nPixelWidth;
+			double y = pThreadInfo->settings->fMinY + j*(pThreadInfo->settings->fMaxY - pThreadInfo->settings->fMinY) / pThreadInfo->settings->nPixelHeight;
+			// Compute the iterations at x,y
+			int iter = compute_point(x,y,pThreadInfo->settings->nMaxIter);
+
+			// Convert a iteration number to an RGB color.
+			// (Change this bit to get more interesting colors.)
+			int gray = 255 * iter / pThreadInfo->settings->nMaxIter;
+
+            // Set the particular pixel to the specific value
+			// Set the pixel in the bitmap.
+			bitmap_set(pThreadInfo->map,i,j,gray);
+		}
+	}
+    pThreadInfo->task[index]->active = 0;
+
+    pthread_mutex_unlock(&lock);
+
     return NULL;
 }
 
@@ -393,6 +455,80 @@ int main( int argc, char *argv[] )
                the tasks at the outset. Hence, it is OK whenever a thread needs something to do to try to access
                that shared data structure with all of the respective tasks.  
                */
+
+            int height = theSettings.nPixelHeight;
+            int width = theSettings.nPixelWidth;
+            int curHeight = height;
+            int curWidth = width;
+
+            int nTasks = (height / TASK_HEIGHT + 1) * (width / TASK_WIDTH + 1);
+            struct Task TheTasks[nTasks - 1];
+
+            int taskCount = 0;
+            while (curHeight >= 20) {
+                curWidth = width;
+                while (curWidth >= 20) {
+                    TheTasks[taskCount].startX = width - curWidth;
+                    TheTasks[taskCount].startY = height - curHeight;
+                    TheTasks[taskCount].endX = width - curWidth + TASK_WIDTH;
+                    TheTasks[taskCount].endY = height - curHeight + TASK_HEIGHT;
+                    TheTasks[taskCount].active = 1;
+                    taskCount ++;
+                    curWidth -= TASK_WIDTH;
+                }
+                if (curWidth > 0) {
+                    TheTasks[taskCount].startX = width - curWidth;
+                    TheTasks[taskCount].startY = height - curHeight;
+                    TheTasks[taskCount].endX = width;
+                    TheTasks[taskCount].endY = height - curHeight + TASK_HEIGHT;
+                    TheTasks[taskCount].active = 1;
+                    taskCount ++;
+                }
+                curHeight -= TASK_HEIGHT;
+            }
+            curWidth = width;
+            if (curHeight > 0) {
+                while (curWidth >= 20) {
+                    TheTasks[taskCount].startX = width - curWidth;
+                    TheTasks[taskCount].startY = height - curHeight;
+                    TheTasks[taskCount].endX = width - curWidth + TASK_WIDTH;
+                    TheTasks[taskCount].endY = height;
+                    TheTasks[taskCount].active = 1;
+                    taskCount ++;
+                    curWidth -= TASK_WIDTH;
+                }
+                if (curWidth > 0) {
+                    TheTasks[taskCount].startX = width - curWidth;
+                    TheTasks[taskCount].startY = height - curHeight;
+                    TheTasks[taskCount].endX = width;
+                    TheTasks[taskCount].endY = height;
+                    TheTasks[taskCount].active = 1;
+                    taskCount ++;
+                }
+            }
+            
+            /* Create a bitmap of the appropriate size */
+            struct bitmap * pBitmap = bitmap_create(theSettings.nPixelWidth, theSettings.nPixelHeight);
+
+            /* Fill the bitmap with dark blue */
+            bitmap_reset(pBitmap,MAKE_RGBA(0,0,255,0));
+
+            /* Create the threads */
+            int i;
+            for (i = 0; i < theSettings.nThreads; i++) {
+                TheThreads[i].nIndex = i;
+                TheThreads[i].taskCount = taskCount;
+                TheThreads[i].task = (struct Task **) TheTasks;
+                TheThreads[i].settings = &theSettings;
+                TheThreads[i].map = pBitmap;
+                pthread_create(&TheThreads[i].threadId, NULL, compute_image_multithread, &TheThreads[i]);
+            }
+
+            /* Join the threads */
+            for (i = 0; i < theSettings.nThreads; i++) {
+                pthread_join(TheThreads[i].threadId, NULL);
+            }
+
         }
         else 
         {
