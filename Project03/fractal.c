@@ -28,13 +28,13 @@ numeric type in C, which has the special functions cabs()
 and cpow() to compute the absolute values and powers of
 complex values.
 */
-#define MAX_THREADS 50
+#define MAX_THREADS 40
 
 struct ThreadInfo {
-    int    nIndex;
-    pthread_t threadId;
-    struct FractalSettings *settings;
-    struct bitmap *map;
+    int         nIndex;
+    pthread_t   threadId;
+    struct      FractalSettings *settings;
+    struct      bitmap *map;
 };
 
 struct ThreadInfo TheThreads[MAX_THREADS];
