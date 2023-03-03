@@ -128,7 +128,7 @@ void * compute_image_multithread (void * pData)
 
 			// Convert a iteration number to an RGB color.
 			// (Change this bit to get more interesting colors.)
-			int gray = 255 * iter / pThreadInfo->settings->nMaxIter;
+			int gray = 255 * iter * 4 / pThreadInfo->settings->nMaxIter;
 
             // Set the particular pixel to the specific value
 			// Set the pixel in the bitmap.
@@ -202,7 +202,7 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 fprintf(stderr, "Error: -xmin requires a value\n");
                 exit(1);
             } else {
-                int new_value = atof(argv[i]);
+                float new_value = atof(argv[i]);
                 if (new_value == 0 && strcmp(argv[i], "0") != 0) {
                     fprintf(stderr, "Error: -xmin requires a numeric value\n");
                     exit(1);
@@ -216,7 +216,7 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 fprintf(stderr, "Error: -xmax requires a value\n");
                 exit(1);
             } else {
-                int new_value = atof(argv[i]);
+                float new_value = atof(argv[i]);
                 if (new_value == 0 && strcmp(argv[i], "0") != 0) {
                     fprintf(stderr, "Error: -xmax requires a numeric value\n");
                     exit(1);
@@ -230,7 +230,7 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 fprintf(stderr, "Error: -ymin requires a value\n");
                 exit(1);
             } else {
-                int new_value = atof(argv[i]);
+                float new_value = atof(argv[i]);
                 if (new_value == 0 && strcmp(argv[i], "0") != 0) {
                     fprintf(stderr, "Error: -ymin requires a numeric value\n");
                     exit(1);
@@ -244,7 +244,7 @@ char processArguments (int argc, char * argv[], struct FractalSettings * pSettin
                 fprintf(stderr, "Error: -ymax requires a value\n");
                 exit(1);
             } else {
-                int new_value = atof(argv[i]);
+                float new_value = atof(argv[i]);
                 if (new_value == 0 && strcmp(argv[i], "0") != 0) {
                     fprintf(stderr, "Error: -ymax requires a numeric value\n");
                     exit(1);
